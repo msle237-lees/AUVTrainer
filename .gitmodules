@@ -1,0 +1,3 @@
+[submodule "HoloOcean"]
+	path = HoloOcean
+	url = https://github.com/msle237-lees/HoloOcean.git
