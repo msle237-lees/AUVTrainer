@@ -21,3 +21,6 @@ def main():
         _manual_db_process()
     else:
         print("Please specify a valid simulation type. Use --help for more information.")
+
+if __name__ == "__main__":
+    main()
