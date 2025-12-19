@@ -91,7 +91,7 @@ def keyboard_run():
         cmd = get_keyboard_input()
         print(f"Sending command: {cmd}")
         send_keyboard_input(cmd)
-        time.sleep(0.1)
+        time.sleep(0.01)
 
 if __name__ == "__main__":
     keyboard_run()
