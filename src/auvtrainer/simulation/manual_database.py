@@ -35,8 +35,7 @@ class ManualDatabase:
         command = self.generate_command()
         self.env.act("auv0", command)
         state = self.env.tick()
-        state_data = state["state"]
-        print(f"Command: {command} \nState Data: {state_data}")
+        print(f"Command: {command} \nState Data: {state}")
 
     def run(self):
         with self.env:
