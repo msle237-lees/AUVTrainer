@@ -1,86 +1,65 @@
-from __future__ import annotations
+import sqlite3
+from pathlib import Path
+from typing import Generator, Optional
 
-from dataclasses import dataclass
-from typing import Any, Optional, Sequence
+# Folder: src/auvtrainer/db/
+BASE_DIR = Path(__file__).parent
 
-import aiosqlite
+# SQLite file location: src/auvtrainer/db/db/auvtrainer.db
+DB_PATH = BASE_DIR / "db" / "auvtrainer.db"
 
-
-@dataclass(slots=True)
-class DatabaseConfig:
-    """Configuration for the SQLite database connection."""
-    path: str
-    enforce_foreign_keys: bool = True
-    row_factory_dict: bool = True
+# SQL init file location: src/auvtrainer/db/initialization_sql.sql
+INIT_SQL_PATH = BASE_DIR / "initialization_sql.sql"
 
 
-class DatabaseManager:
+def get_db_connection(db_path: Optional[Path] = None) -> sqlite3.Connection:
     """
-    Thin async wrapper around aiosqlite.
+    Establishes a connection to the SQLite database.
 
-    Keeps a single connection open for the app lifetime (managed by FastAPI lifespan).
+    Args:
+        db_path (Optional[Path]): Path to the SQLite database file.
+                                  If None, uses the default DB_PATH.
+
+    Returns:
+        sqlite3.Connection: SQLite database connection object.
     """
+    path = db_path or DB_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
 
-    def __init__(self, config: DatabaseConfig):
-        self.config = config
-        self.connection: Optional[aiosqlite.Connection] = None
+    conn = sqlite3.connect(path, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
 
-    async def connect(self) -> None:
-        """Open the SQLite connection and apply basic pragmas."""
-        if self.connection is not None:
-            return
+    # Enforce FK constraints (SQLite defaults to OFF unless enabled per-connection)
+    conn.execute("PRAGMA foreign_keys = ON;")
+    return conn
 
-        self.connection = await aiosqlite.connect(self.config.path)
 
-        if self.config.enforce_foreign_keys:
-            await self.connection.execute("PRAGMA foreign_keys = ON;")
+def initialize_database(db_path: Optional[Path] = None) -> None:
+    """
+    Initializes the database by creating necessary tables if they do not exist.
 
-        if self.config.row_factory_dict:
-            self.connection.row_factory = aiosqlite.Row
+    Args:
+        db_path (Optional[Path]): Path to the SQLite database file.
+                                  If None, uses the default DB_PATH.
+    """
+    conn = get_db_connection(db_path)
+    try:
+        sql_script = INIT_SQL_PATH.read_text(encoding="utf-8")
+        conn.executescript(sql_script)
+        conn.commit()
+    finally:
+        conn.close()
 
-        await self.connection.commit()
 
-    async def close(self) -> None:
-        """Close the SQLite connection."""
-        if self.connection is None:
-            return
-        await self.connection.close()
-        self.connection = None
+def get_db() -> Generator[sqlite3.Connection, None, None]:
+    """
+    FastAPI dependency that yields a database connection.
 
-    def require_connection(self) -> aiosqlite.Connection:
-        """Return an active connection or raise a clear error."""
-        if self.connection is None:
-            raise RuntimeError("Database connection is not initialized. Did lifespan run?")
-        return self.connection
-
-    async def execute(self, sql: str, params: Sequence[Any] | None = None) -> int:
-        """
-        Execute a statement and commit.
-
-        Returns:
-            int: lastrowid when available, otherwise -1.
-        """
-        db = self.require_connection()
-        cur = await db.execute(sql, params or ())
-        await db.commit()
-        last_id = getattr(cur, "lastrowid", None)
-        await cur.close()
-        return int(last_id) if last_id is not None else -1
-
-    async def fetch_one(self, sql: str, params: Sequence[Any] | None = None) -> dict[str, Any] | None:
-        """Fetch a single row as a dict (or None)."""
-        db = self.require_connection()
-        cur = await db.execute(sql, params or ())
-        row = await cur.fetchone()
-        await cur.close()
-        return dict(row) if row else None
-
-    async def fetch_many(
-        self, sql: str, params: Sequence[Any] | None = None
-    ) -> list[dict[str, Any]]:
-        """Fetch multiple rows as a list of dicts."""
-        db = self.require_connection()
-        cur = await db.execute(sql, params or ())
-        rows = await cur.fetchall()
-        await cur.close()
-        return [dict(r) for r in rows]
+    Yields:
+        sqlite3.Connection: SQLite database connection object.
+    """
+    db = get_db_connection()
+    try:
+        yield db
+    finally:
+        db.close()
