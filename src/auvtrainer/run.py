@@ -47,8 +47,8 @@ def _popen(spec: ProcSpec) -> subprocess.Popen:
     """
     Start a subprocess (non-blocking).
 
-    \param spec ProcSpec describing the process.
-    \return subprocess.Popen handle.
+    :param spec: ProcSpec describing the process.
+    :return: subprocess.Popen handle.
     """
     env = _project_env()
     if spec.env:
@@ -66,9 +66,9 @@ def _http_ok(url: str, timeout_s: float = 1.5) -> bool:
     """
     Check if an HTTP endpoint responds successfully.
 
-    \param url URL to check.
-    \param timeout_s Timeout in seconds.
-    \return True if reachable and returns 2xx/3xx, else False.
+    :param url: URL to check.
+    :param timeout_s: Timeout in seconds.
+    :return: True if reachable and returns 2xx/3xx, else False.
     """
     try:
         req = urllib.request.Request(url, method="GET")
@@ -82,10 +82,10 @@ def _wait_for_http(url: str, deadline_s: float = 20.0, poll_s: float = 0.25) -> 
     """
     Wait for an HTTP endpoint to become reachable.
 
-    \param url Health endpoint.
-    \param deadline_s Max time to wait.
-    \param poll_s Poll interval.
-    \throws RuntimeError if deadline expires.
+    :param url: Health endpoint.
+    :param deadline_s: Max time to wait.
+    :param poll_s: Poll interval.
+    :raises RuntimeError: if deadline expires.
     """
     start = time.time()
     while time.time() - start < deadline_s:
@@ -99,9 +99,9 @@ def _terminate_process(proc: subprocess.Popen, name: str, grace_s: float = 6.0) 
     """
     Terminate a process gracefully, then force kill if needed.
 
-    \param proc Process handle.
-    \param name Friendly process name for logs.
-    \param grace_s Seconds to wait before killing.
+    :param proc: Process handle.
+    :param name: Friendly process name for logs.
+    :param grace_s: Seconds to wait before killing.
     """
     if proc.poll() is not None:
         return
@@ -135,7 +135,7 @@ def _run_manual_db() -> int:
     - keyboard input
     - manual_database simulation
 
-    \return Exit code.
+    :return: Exit code.
     """
     procs: list[tuple[str, subprocess.Popen]] = []
 
