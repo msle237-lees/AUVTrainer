@@ -177,6 +177,8 @@ def _run_manual_db() -> int:
     kb_proc = _popen(kb_spec)
     procs.append((kb_spec.name, kb_proc))
 
+    time.sleep(3)  # Give some time for keyboard input to initialize
+
     sim_spec = ProcSpec(
         name="simulation",
         cmd=[sys.executable, "-m", "auvtrainer.simulation.manual_database"],
