@@ -25,7 +25,19 @@ scenario = {
                     "configuration": {
                         "Sigma": 0.255
                     }
-                }
+                },
+                {
+                    "sensor_type": "IMUSensor",
+                    "socket": "IMUSocket",
+                    "Hz": 200,
+                    "configuration": {
+                        "AccelSigma": 0.00277,
+                        "AngVelSigma": 0.00123,
+                        "AccelBiasSigma": 0.00141,
+                        "AngVelBiasSigma": 0.00388,
+                        "ReturnBias": True
+                    }
+                }   
             ],
             "control_scheme": 0,
             "location": [0, 0, -10]
