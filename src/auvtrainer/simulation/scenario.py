@@ -12,7 +12,7 @@ scenario = {
                 {
                     "sensor_type": "RGBCamera",
                     "socket": "CameraSocket",
-                    "Hz": 20,
+                    "Hz": 30,
                     "configuration": {
                         "CaptureWidth": 512,
                         "CaptureHeight": 512
@@ -21,7 +21,7 @@ scenario = {
                 {
                     "sensor_type": "DepthSensor",
                     "socket": "DepthSocket",
-                    "Hz": 20,
+                    "Hz": 30,
                     "configuration": {
                         "Sigma": 0.255
                     }
@@ -29,7 +29,7 @@ scenario = {
                 {
                     "sensor_type": "IMUSensor",
                     "socket": "IMUSocket",
-                    "Hz": 200,
+                    "Hz": 30,
                     "configuration": {
                         "AccelSigma": 0.00277,
                         "AngVelSigma": 0.00123,
