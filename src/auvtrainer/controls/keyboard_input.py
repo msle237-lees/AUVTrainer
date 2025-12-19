@@ -89,7 +89,7 @@ def keyboard_run():
     import time
     while True:
         cmd = get_keyboard_input()
-        # print(f"Sending command: {cmd}")
+        print(f"Sending command: {cmd}")
         send_keyboard_input(cmd)
         time.sleep(0.1)
 
