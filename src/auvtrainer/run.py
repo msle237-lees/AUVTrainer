@@ -265,7 +265,6 @@ PIPELINES: dict[str, PipelineSpec] = {
                 cmd=[
                     "uvicorn",
                     "auvtrainer.db.app:app",
-                    "--reload",
                     "--host",
                     "127.0.0.1",
                     "--port",
