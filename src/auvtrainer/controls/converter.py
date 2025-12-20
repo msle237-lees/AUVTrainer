@@ -49,6 +49,7 @@ class Converter:
         return (value - self.in_mins[i]) * (self.out_maxs[i] - self.out_mins[i]) / (self.in_maxs[i] - self.in_mins[i]) + self.out_mins[i]
     
     def _mapInputs(self, inputs : np.ndarray, arm : bool) -> np.ndarray:
+        command = np.array([0.0] * 8)
         if arm:
             if inputs[0] > inputs[1] > inputs[3]:
                 command = inputs[0] * self.mapping[0]  # X
