@@ -65,3 +65,10 @@ class Converter:
         inputs, arm = self._get_inputs()
         mapped_inputs = self._mapInputs(inputs, arm)
         self._post_outputs(mapped_inputs)
+
+if __name__ == "__main__":
+    converter = Converter()
+    import time
+    while True:
+        converter.run_conversion_step()
+        time.sleep(0.01)
