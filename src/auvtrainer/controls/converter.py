@@ -28,8 +28,8 @@ class Converter:
             arm = False
             inputs = np.array([0.0] * 8)
         else:
-            arm = inputs["arm"]
-            inputs = np.array([value for _, value in inputs.items() if isinstance(value, (int, float))])
+            arm = inputs["newest_row"]["arm"]
+            inputs = np.array([value for _, value in inputs["newest_row"].items() if isinstance(value, (int, float))])
         return inputs, arm
     
     def _post_outputs(self, outputs : np.ndarray) -> None:
