@@ -23,6 +23,7 @@ class Converter:
 
     def _get_inputs(self) -> Tuple[np.ndarray, bool]:
         inputs = self.client.table_get_newest("inputs")
+        print(f"Retrieved inputs: {inputs}")
         if inputs is None:
             arm = False
             inputs = np.array([0.0] * 8)
