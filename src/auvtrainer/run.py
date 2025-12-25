@@ -311,6 +311,7 @@ def main() -> None:
         choices=sorted(PIPELINES.keys()),
         required=True,
         help="Pipeline/simulation to run",
+        default="manual_db",
     )
 
     args = parser.parse_args()

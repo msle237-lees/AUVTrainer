@@ -1,7 +1,7 @@
 """
 # DB HTTP Client (FastAPI /db routes)
 
-This module provides a thin, safe wrapper around the FastAPI DB routes:
+Thin wrapper around your FastAPI DB routes:
 
 - GET  /db/status
 - GET  /db/tables
@@ -25,15 +25,24 @@ from db_http_client import DBApiClient
 client = DBApiClient("http://127.0.0.1:8000")
 print(client.status())
 print(client.list_tables())
+
+# Typed helpers:
+row = client.create_input(x=1, y=2, z=3, yaw=4, arm=True)
+print("Inserted input rowid:", row)
+
+newest_input = client.get_newest_input()
+print("Newest input:", newest_input)
+
+all_outputs = client.get_all_outputs()
+print("Outputs:", all_outputs)
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union, cast
 
 import requests
-
 
 JsonDict = Dict[str, Any]
 Json = Union[JsonDict, List[Any], str, int, float, bool, None]
@@ -44,7 +53,9 @@ class DBApiError(RuntimeError):
     Exception raised when the DB API returns a non-2xx response.
     """
 
-    def __init__(self, status_code: int, message: str, url: str, details: Optional[Any] = None) -> None:
+    def __init__(
+        self, status_code: int, message: str, url: str, details: Optional[Any] = None
+    ) -> None:
         super().__init__(f"[DBApiError] {status_code} {message} | url={url} | details={details}")
         self.status_code = status_code
         self.message = message
@@ -52,10 +63,89 @@ class DBApiError(RuntimeError):
         self.details = details
 
 
+# -----------------------------------------------------------------------------
+# Typed "Read" models (client-side)
+# -----------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class InputRead:
+    """
+    Client-side representation of a row in `inputs`.
+
+    Notes:
+        - SQLite often stores booleans as 0/1; this class normalizes arm -> bool.
+        - Your API returns rows as dicts via SELECT * FROM inputs.
+    """
+
+    id: int
+    x: int
+    y: int
+    z: int
+    yaw: int
+    arm: bool
+
+    @staticmethod
+    def from_row(row: JsonDict) -> "InputRead":
+        arm_val = row.get("arm")
+        if isinstance(arm_val, bool):
+            arm_bool = arm_val
+        else:
+            # accept 0/1, "0"/"1", etc.
+            arm_bool = bool(int(arm_val)) if arm_val is not None else False
+
+        return InputRead(
+            id=int(row["id"]),
+            x=int(row["x"]),
+            y=int(row["y"]),
+            z=int(row["z"]),
+            yaw=int(row["yaw"]),
+            arm=arm_bool,
+        )
+
+
+@dataclass(frozen=True)
+class OutputRead:
+    """
+    Client-side representation of a row in `outputs`.
+    """
+
+    id: int
+    inputs_id: int
+    m1: int
+    m2: int
+    m3: int
+    m4: int
+    m5: int
+    m6: int
+    m7: int
+    m8: int
+
+    @staticmethod
+    def from_row(row: JsonDict) -> "OutputRead":
+        return OutputRead(
+            id=int(row["id"]),
+            inputs_id=int(row["inputs_id"]),
+            m1=int(row["m1"]),
+            m2=int(row["m2"]),
+            m3=int(row["m3"]),
+            m4=int(row["m4"]),
+            m5=int(row["m5"]),
+            m6=int(row["m6"]),
+            m7=int(row["m7"]),
+            m8=int(row["m8"]),
+        )
+
+
+# -----------------------------------------------------------------------------
+# Client
+# -----------------------------------------------------------------------------
+
+
 @dataclass(frozen=True)
 class DBApiClient:
     """
-    A small client for the AUVTrainer DB FastAPI endpoints under /db.
+    A small client for the DB FastAPI endpoints under /db.
 
     Attributes:
         base_url: Base URL for the FastAPI service, e.g. "http://127.0.0.1:8000"
@@ -102,7 +192,7 @@ class DBApiClient:
         Raises:
             DBApiError: If server returns non-2xx response.
             requests.RequestException: For network errors/timeouts.
-            ValueError: If response is not JSON.
+            ValueError: If response is not JSON or not a JSON object.
         """
         url = self._url(path)
         sess = self.session or requests
@@ -115,7 +205,7 @@ class DBApiClient:
             timeout=self.timeout_s,
         )
 
-        # Try to parse JSON even on errors (FastAPI returns {"detail": ...})
+        # Try to parse JSON even on errors (FastAPI typically returns {"detail": ...})
         try:
             payload = resp.json()
         except ValueError:
@@ -126,13 +216,12 @@ class DBApiClient:
             raise DBApiError(resp.status_code, resp.reason, url, details)
 
         if not isinstance(payload, dict):
-            # Your routes currently always return dict-like objects; enforce that contract.
             raise ValueError(f"Expected JSON object response, got: {type(payload)} from {url}")
 
-        return payload
+        return cast(JsonDict, payload)
 
     # -------------------------
-    # /db endpoints
+    # Raw /db endpoints
     # -------------------------
 
     def status(self) -> JsonDict:
@@ -175,7 +264,7 @@ class DBApiClient:
         """
         POST /db/tables/{table_name}/delete/selection
 
-        Your FastAPI route uses: Body(..., embed=True) with parameter name row_ids,
+        Your FastAPI route uses Body(..., embed=True) with parameter name row_ids,
         so the JSON must be: {"row_ids": [1,2,3]}
         """
         body = {"row_ids": row_ids}
@@ -190,10 +279,132 @@ class DBApiClient:
         POST /db/tables/{table_name}/append
 
         Args:
-            table_name: Table to insert into
+            table_name: Table to insert into.
             row_data: Dict mapping column->value, must match actual table columns.
+
+        Notes:
+            If your table uses an INTEGER PRIMARY KEY AUTOINCREMENT `id`,
+            you should NOT include "id" in row_data (SQLite will generate it).
         """
         return self._request("POST", f"/db/tables/{table_name}/append", json_body=row_data)
+
+    # -------------------------
+    # Typed helpers (inputs/outputs)
+    # -------------------------
+
+    def get_all_inputs(self) -> List[InputRead]:
+        """
+        Fetch all rows from `inputs` and parse into InputRead objects.
+        """
+        payload = self.table_get_all("inputs")
+        rows = payload.get("rows", [])
+        if not isinstance(rows, list):
+            raise ValueError("Expected payload['rows'] to be a list for inputs")
+        return [InputRead.from_row(cast(JsonDict, r)) for r in rows]
+
+    def get_newest_input(self) -> Optional[InputRead]:
+        """
+        Fetch newest row from `inputs` (by rowid) and parse into InputRead.
+        """
+        payload = self.table_get_newest("inputs")
+        row = payload.get("newest_row")
+        if row is None:
+            return None
+        if not isinstance(row, dict):
+            raise ValueError("Expected payload['newest_row'] to be an object for inputs")
+        return InputRead.from_row(cast(JsonDict, row))
+
+    def get_oldest_input(self) -> Optional[InputRead]:
+        """
+        Fetch oldest row from `inputs` (by rowid) and parse into InputRead.
+        """
+        payload = self.table_get_oldest("inputs")
+        row = payload.get("oldest_row")
+        if row is None:
+            return None
+        if not isinstance(row, dict):
+            raise ValueError("Expected payload['oldest_row'] to be an object for inputs")
+        return InputRead.from_row(cast(JsonDict, row))
+
+    def create_input(self, *, x: int, y: int, z: int, yaw: int, arm: bool) -> int:
+        """
+        Insert a new row into `inputs`.
+
+        Returns:
+            The inserted SQLite rowid returned by the API.
+
+        Notes:
+            This assumes your `inputs.id` is auto-generated by SQLite (INTEGER PRIMARY KEY).
+            So we do NOT send 'id' in the payload.
+        """
+        body = {
+            "x": int(x),
+            "y": int(y),
+            "z": int(z),
+            "yaw": int(yaw),
+            "arm": 1 if arm else 0,
+        }
+        resp = self.table_append("inputs", body)
+        return int(resp["rowid"])
+
+    def get_all_outputs(self) -> List[OutputRead]:
+        """
+        Fetch all rows from `outputs` and parse into OutputRead objects.
+        """
+        payload = self.table_get_all("outputs")
+        rows = payload.get("rows", [])
+        if not isinstance(rows, list):
+            raise ValueError("Expected payload['rows'] to be a list for outputs")
+        return [OutputRead.from_row(cast(JsonDict, r)) for r in rows]
+
+    def get_newest_output(self) -> Optional[OutputRead]:
+        """
+        Fetch newest row from `outputs` (by rowid) and parse into OutputRead.
+        """
+        payload = self.table_get_newest("outputs")
+        row = payload.get("newest_row")
+        if row is None:
+            return None
+        if not isinstance(row, dict):
+            raise ValueError("Expected payload['newest_row'] to be an object for outputs")
+        return OutputRead.from_row(cast(JsonDict, row))
+
+    def create_output(
+        self,
+        *,
+        inputs_id: int,
+        m1: int,
+        m2: int,
+        m3: int,
+        m4: int,
+        m5: int,
+        m6: int,
+        m7: int,
+        m8: int,
+    ) -> int:
+        """
+        Insert a new row into `outputs`.
+
+        Returns:
+            The inserted SQLite rowid returned by the API.
+
+        Notes:
+            This assumes your `outputs.id` is auto-generated by SQLite (INTEGER PRIMARY KEY).
+            So we do NOT send 'id' in the payload.
+        """
+        body = {
+            "inputs_id": int(inputs_id),
+            "m1": int(m1),
+            "m2": int(m2),
+            "m3": int(m3),
+            "m4": int(m4),
+            "m5": int(m5),
+            "m6": int(m6),
+            "m7": int(m7),
+            "m8": int(m8),
+        }
+        resp = self.table_append("outputs", body)
+        return int(resp["rowid"])
 
 
 def quick_smoke_test(base_url: str = "http://127.0.0.1:8000") -> None:
@@ -211,6 +422,10 @@ def quick_smoke_test(base_url: str = "http://127.0.0.1:8000") -> None:
 
     for t in tables.get("tables", []):
         print(f"COUNT({t}):", client.table_count(t))
+
+    # Try typed reads (safe even if empty tables)
+    print("NEWEST INPUT:", client.get_newest_input())
+    print("NEWEST OUTPUT:", client.get_newest_output())
 
 
 if __name__ == "__main__":

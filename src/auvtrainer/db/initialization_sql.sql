@@ -1,7 +1,9 @@
 -- initialization_sql.sql (SQLite)
 
+PRAGMA foreign_keys = ON;
+
 CREATE TABLE IF NOT EXISTS inputs (
-    id TEXT PRIMARY KEY,
+    id INTEGER PRIMARY KEY,          -- auto row id
     x INTEGER NOT NULL,
     y INTEGER NOT NULL,
     z INTEGER NOT NULL,
@@ -10,8 +12,8 @@ CREATE TABLE IF NOT EXISTS inputs (
 );
 
 CREATE TABLE IF NOT EXISTS outputs (
-    id TEXT PRIMARY KEY,
-    inputs_id TEXT NOT NULL,
+    id INTEGER PRIMARY KEY,          -- auto row id
+    inputs_id INTEGER NOT NULL,      -- FK to inputs.id
     m1 INTEGER NOT NULL,
     m2 INTEGER NOT NULL,
     m3 INTEGER NOT NULL,
@@ -22,4 +24,3 @@ CREATE TABLE IF NOT EXISTS outputs (
     m8 INTEGER NOT NULL,
     FOREIGN KEY (inputs_id) REFERENCES inputs(id) ON DELETE CASCADE
 );
-
