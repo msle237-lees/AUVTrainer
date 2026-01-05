@@ -257,8 +257,8 @@ def run_pipeline(pipeline: PipelineSpec) -> int:
 
 
 PIPELINES: dict[str, PipelineSpec] = {
-    "manual_db": PipelineSpec(
-        name="manual_db",
+    "manual_keyboard": PipelineSpec(
+        name="manual_keyboard",
         steps=[
             ProcSpec(
                 name="db",
@@ -279,7 +279,7 @@ PIPELINES: dict[str, PipelineSpec] = {
             ),
             ProcSpec(
                 name="controls",
-                cmd=[sys.executable, "-m", "auvtrainer.controls.keyboard_input"],
+                cmd=[sys.executable, "-m", "auvtrainer.controls.keyboard"],
                 wait=WaitSpec(kind="sleep", target="3"),
             ),
             ProcSpec(
@@ -307,11 +307,10 @@ def main() -> None:
     parser.add_argument("--version", action="version", version="AUVTrainer %s" % __version__)
     parser.add_argument(
         "--simulation_type",
-        type=str,
-        choices=sorted(PIPELINES.keys()),
+        type=str.lower,
+        choices=sorted(k.lower() for k in PIPELINES.keys()),
         required=True,
         help="Pipeline/simulation to run",
-        default="manual_db",
     )
 
     args = parser.parse_args()
