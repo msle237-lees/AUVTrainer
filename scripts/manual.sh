@@ -1,1 +1,0 @@
-python3 -m auvtrainer.run --simulation_type manual_keyboard
